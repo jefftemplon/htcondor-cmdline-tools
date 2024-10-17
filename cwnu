@@ -1,0 +1,48 @@
+#!/usr/bin/python3
+
+import htcondor
+import classad
+
+schedd  = htcondor.Schedd()
+scqlist = schedd.query(
+    projection=[
+    "ClusterId", "ProcId", "JobStatus", "QDate", "Owner", "CpusProvisioned", "RemoteHost"],
+)
+
+procs_on_wn = dict()
+
+for j in scqlist:
+    if (j["jobStatus"] == 2) and ("RemoteHost" in j.keys()) : # then running and not DagMan
+        wn = j["RemoteHost"].split("@")[1].split('.')[0]
+        if wn not in procs_on_wn.keys():
+            procs_on_wn[wn] = dict()
+        user = j["Owner"]
+        if user not in procs_on_wn[wn]:
+            procs_on_wn[wn][user] = 0
+        procs_on_wn[wn][user] += j["CpusProvisioned"]
+
+import subprocess
+args = ['/bin/condor_status', '-compact']
+out = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
+lines = out.decode().split('\n')
+
+for l in lines:
+    if l[:2] == "wn":
+        flds=l.split()
+        wn = flds[0].split('.')[0]
+        print("%12s  " % (wn), end='')
+        statestr = "UNI"
+        print("%3s " % (statestr), end='')
+        cpus = int(flds[3])
+        freecpus = int(flds[6])
+        nrun = 0
+        usrs = [ ]
+        if wn in procs_on_wn.keys():
+            usrs = procs_on_wn[wn].keys()
+            for k in procs_on_wn[wn].keys():
+                nrun += procs_on_wn[wn][k]
+        print("tot %3d" % (nrun), " ",end='')
+        if len(usrs) > 0:
+            for u in usrs:
+                print("%8s %2d " % (u, procs_on_wn[wn][u]),end='')
+        print()

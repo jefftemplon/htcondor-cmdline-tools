@@ -1,0 +1,22 @@
+#!/bin/sh
+tmpf=$(mktemp --tmpdir cmrtmp.XXX)
+condor_q -allusers -nobatch -af:jh, JobStatus Owner JobCategory JobStartDate \
+   JobCurrentStartDate RemoteUserCpu ServerTime-JobCurrentStartDate \
+   "splitSlotName(RemoteHost)[1]" CpusProvisioned | tr -d ' ' > $tmpf
+
+cat $tmpf | \
+   mlr --icsv --opprint --right --tz Europe/Amsterdam then \
+    filter '$JobStatus == 2' then \
+    sort -n JobCurrentStartDate then \
+    rename splitSlotName\(RemoteHost\)[1],fred then \
+    rename ServerTime-JobCurrentStartDate,WallTime then \
+    put '$CurrentStart=sec2localtime($JobCurrentStartDate)' then \
+    put 'if ($JobCurrentStartDate == $JobStartDate) {
+            $FirstStart=" --- " } else {
+            $FirstStart="  ".sec2localtime($JobStartDate)}' then \
+    put '$exec_host="  ".gsub($fred,".nikhef.nl.*","")' then \
+    put 'if ($exec_host == "error") {
+       $exec_host=" DAG? " ; $CpusProvisioned=0 }' then \
+    cut -x -f JobStartDate,JobCurrentStartDate,fred then \
+    reorder -f CurrentStart,FirstStart -a JobCategory then cat 
+rm $tmpf
