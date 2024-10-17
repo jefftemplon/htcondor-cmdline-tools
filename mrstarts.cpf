@@ -1,0 +1,13 @@
+SELECT NOSUMMARY
+   ClusterId                     AS  JOB_ID  PRINTAS JOB_ID
+   JobStatus                     AS "  ST"   WIDTH 3 PRINTAS JOB_STATUS
+   Owner                         AS Username
+   JobCurrentStartDate           AS time_started PRINTAS QDATE
+   RemoteSysCpu+RemoteUserCpu    AS "   cputime"   PRINTAS CPU_TIME
+   CpusUsage                     AS "  Efficiency" PRINTF "%.3f"
+   Cmd                           AS CMD      WIDTH -25 PRINTAS JOB_DESCRIPTION
+   splitSlotName(RemoteHost)[1]  AS "  WorkerNode"  WIDTH -12
+   CpusProvisioned               AS CPUS 
+WHERE
+   JobStatus == 2
+GROUP BY JobCurrentStartDate DESCENDING
